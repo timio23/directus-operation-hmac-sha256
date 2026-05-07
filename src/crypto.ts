@@ -46,6 +46,51 @@ function createCryptoModule(): CryptoModule {
     return new Uint8Array(bytes);
   }
 
+  function utf8Encode(string: string) {
+    string = string.replace(/\r\n/g, '\n')
+    let utftext = ''
+
+    for (let n = 0; n < string.length; n++) {
+      const c = string.charCodeAt(n)
+
+      if (c < 128) {
+          utftext += String.fromCharCode(c)
+      } else if ((c > 127) && (c < 2048)) {
+          utftext += String.fromCharCode((c >> 6) | 192)
+          utftext += String.fromCharCode((c & 63) | 128)
+      } else {
+          utftext += String.fromCharCode((c >> 12) | 224)
+          utftext += String.fromCharCode(((c >> 6) & 63) | 128)
+          utftext += String.fromCharCode((c & 63) | 128)
+      }
+    }
+
+    return utftext
+  }
+
+  function utf8Decode(utftext: string) {
+    var string = "";
+    var i = 0;
+    var c = 0, c1 = 0, c2 = 0;
+    while ( i < utftext.length ) {
+      c = utftext.charCodeAt(i);
+      if (c < 128) {
+        string += String.fromCharCode(c);
+        i++;
+      } else if((c > 191) && (c < 224)) {
+        c1 = utftext.charCodeAt(i+1);
+        string += String.fromCharCode(((c & 31) << 6) | (c1 & 63));
+        i += 2;
+      } else {
+        c1 = utftext.charCodeAt(i+1);
+        c2 = utftext.charCodeAt(i+2);
+        string += String.fromCharCode(((c & 15) << 12) | ((c1 & 63) << 6) | (c2 & 63));
+        i += 3;
+      }
+    };
+    return string;
+  }
+
   /**
    * Hex string to bytes
    */
@@ -117,17 +162,17 @@ function createCryptoModule(): CryptoModule {
 
       // Break chunk into 16 32-bit big-endian words
       for (let i = 0; i < 16; i++) {
-        w[i] = (padded[chunkStart + i * 4] << 24) |
-               (padded[chunkStart + i * 4 + 1] << 16) |
-               (padded[chunkStart + i * 4 + 2] << 8) |
-               padded[chunkStart + i * 4 + 3];
+        w[i] = ((padded[chunkStart + i * 4] as number) << 24) |
+               ((padded[chunkStart + i * 4 + 1] as number) << 16) |
+               ((padded[chunkStart + i * 4 + 2] as number) << 8) |
+               (padded[chunkStart + i * 4 + 3] as number);
       }
 
       // Extend the 16 32-bit words into 64 32-bit words
       for (let i = 16; i < 64; i++) {
-        const s0 = rightRotate(w[i - 15], 7) ^ rightRotate(w[i - 15], 18) ^ (w[i - 15] >>> 3);
-        const s1 = rightRotate(w[i - 2], 17) ^ rightRotate(w[i - 2], 19) ^ (w[i - 2] >>> 10);
-        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+        const s0 = rightRotate(w[i - 15] as number, 7) ^ rightRotate(w[i - 15] as number, 18) ^ ((w[i - 15]  as number) >>> 3);
+        const s1 = rightRotate(w[i - 2] as number, 17) ^ rightRotate(w[i - 2] as number, 19) ^ ((w[i - 2] as number) >>> 10);
+        w[i] = ((w[i - 16] as number) + s0 + (w[i - 7] as number) + s1) >>> 0;
       }
 
       // Initialize working variables
@@ -144,7 +189,7 @@ function createCryptoModule(): CryptoModule {
       for (let i = 0; i < 64; i++) {
         const S1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25);
         const ch = (e & f) ^ (~e & g);
-        const temp1 = (h + S1 + ch + K[i] + w[i]) >>> 0;
+        const temp1 = (h + S1 + ch + (K[i] as number) + (w[i] as number)) >>> 0;
         const S0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22);
         const maj = (a & b) ^ (a & c) ^ (b & c);
         const temp2 = (S0 + maj) >>> 0;
@@ -209,8 +254,8 @@ function createCryptoModule(): CryptoModule {
     const opadKey = new Uint8Array(blockSize);
 
     for (let i = 0; i < blockSize; i++) {
-      ipadKey[i] = keyBytes[i] ^ 0x36;
-      opadKey[i] = keyBytes[i] ^ 0x5c;
+      ipadKey[i] = (keyBytes[i] as number) ^ 0x36;
+      opadKey[i] = (keyBytes[i] as number) ^ 0x5c;
     }
 
     // Inner hash: H((K XOR ipad) || message)
@@ -270,48 +315,65 @@ function createCryptoModule(): CryptoModule {
    * Convert string to Base64
    */
   function toBase64(str: string): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    let result = '';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    let output = '';
+    let chr1, chr2, chr3, enc1, enc2, enc3, enc4;
     let i = 0;
 
+    str = utf8Encode(str);
+
     while (i < str.length) {
-      const a = str.charCodeAt(i++);
-      const b = i < str.length ? str.charCodeAt(i++) : 0;
-      const c = i < str.length ? str.charCodeAt(i++) : 0;
+        chr1 = str.charCodeAt(i++);
+        chr2 = str.charCodeAt(i++);
+        chr3 = str.charCodeAt(i++);
 
-      const bitmap = (a << 16) | (b << 8) | c;
+        enc1 = chr1 >> 2;
+        enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+        enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+        enc4 = chr3 & 63;
 
-      result += chars.charAt((bitmap >> 18) & 63);
-      result += chars.charAt((bitmap >> 12) & 63);
-      result += i - 2 < str.length ? chars.charAt((bitmap >> 6) & 63) : '=';
-      result += i - 1 < str.length ? chars.charAt(bitmap & 63) : '=';
+        if (isNaN(chr2)) {
+            enc3 = enc4 = 64;
+        } else if (isNaN(chr3)) {
+            enc4 = 64;
+        }
+
+        output = output +
+          chars.charAt(enc1) + chars.charAt(enc2) +
+          chars.charAt(enc3) + chars.charAt(enc4);
     }
 
-    return result;
+    return output
   }
 
   /**
    * Convert Base64 to string
    */
   function fromBase64(b64: string): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    let result = '';
-    let i = 0;
-
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+    var output = "";
+    var chr1, chr2, chr3;
+    var enc1, enc2, enc3, enc4;
+    var i = 0;
+    b64 = b64.replace(/[^A-Za-z0-9\+\/\=]/g, "");
     while (i < b64.length) {
-      const a = chars.indexOf(b64.charAt(i++));
-      const b = chars.indexOf(b64.charAt(i++));
-      const c = chars.indexOf(b64.charAt(i++));
-      const d = chars.indexOf(b64.charAt(i++));
-
-      const bitmap = (a << 18) | (b << 12) | (c << 6) | d;
-
-      result += String.fromCharCode((bitmap >> 16) & 255);
-      if (c !== 64) result += String.fromCharCode((bitmap >> 8) & 255);
-      if (d !== 64) result += String.fromCharCode(bitmap & 255);
-    }
-
-    return result;
+      enc1 = chars.indexOf(b64.charAt(i++));
+      enc2 = chars.indexOf(b64.charAt(i++));
+      enc3 = chars.indexOf(b64.charAt(i++));
+      enc4 = chars.indexOf(b64.charAt(i++));
+      chr1 = (enc1 << 2) | (enc2 >> 4);
+      chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+      chr3 = ((enc3 & 3) << 6) | enc4;
+      output = output + String.fromCharCode(chr1);
+      if (enc3 != 64) {
+        output = output + String.fromCharCode(chr2);
+      };
+      if (enc4 != 64) {
+        output = output + String.fromCharCode(chr3);
+      }
+    };
+    output = utf8Decode(output);
+    return output;
   }
 
   /**
