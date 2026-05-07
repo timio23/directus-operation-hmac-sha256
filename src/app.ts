@@ -1,10 +1,10 @@
 import { defineOperationApp } from '@directus/extensions-sdk';
 
 export default defineOperationApp({
-	id: 'directus-operation-hmac-sha256',
+	id: '@timio23/directus-operation-cryptography',
 	name: 'Cryptography',
 	icon: 'key',
-	description: 'Encrypt a message using a secret',
+	description: 'Provides HMAC-SHA256 cryptographic functions for secure data signing, verification, and encryption within your automation pipelines.',
 	overview: ({ message }) => [
 		{
 			label: 'Text',

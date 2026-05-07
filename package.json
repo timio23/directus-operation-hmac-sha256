@@ -1,6 +1,6 @@
 {
-	"name": "directus-operation-hmac-sha256",
-	"description": "Encrypt a message using a secret",
+	"name": "@timio23/directus-operation-cryptography",
+	"description": "Provides HMAC-SHA256 cryptographic functions for secure data signing, verification, and encryption within your automation pipelines.",
 	"icon": "extension",
 	"version": "1.0.0",
 	"author": "Tim Butterfield",
@@ -19,7 +19,9 @@
 		"sha256",
 		"hmac-sha256",
 		"hash",
-		"sha"
+		"sha",
+		"cryptography",
+		"crypto"
 	],
 	"type": "module",
 	"files": [

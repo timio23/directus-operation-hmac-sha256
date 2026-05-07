@@ -17,7 +17,7 @@ interface OperationOptions {
 }
 
 const operation: SandboxOperationConfig = {
-    id: 'directus-operation-hmac-sha256',
+    id: '@timio23/directus-operation-cryptography',
     handler: (options: OperationOptions) => {
 			
 			if (!options.method) {
